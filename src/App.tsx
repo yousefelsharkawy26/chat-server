@@ -9,8 +9,7 @@ import {
   Hash, 
   User as UserIcon, 
   Sparkles, 
-  Wifi, 
-  WifiOff, 
+  WifiOff,
   Smile, 
   ChevronRight,
   ChevronDown,
@@ -21,6 +20,7 @@ import {
   Palette,
   Search,
   X,
+  XCircle,
   Mic,
   Square,
   Trash2,
@@ -49,6 +49,7 @@ import {
   ShieldAlert,
   MicOff,
   UserX,
+  Zap,
   History as HistoryIcon
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -56,7 +57,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
-import { User, Message, Task, ChannelFolder, UserRole } from "./types";
+import { User, Message, Task, ChannelFolder, UserRole, CustomEmoji } from "./types";
 import { UserProfileModal } from "./components/UserProfileModal";
 import { ThreadDrawer } from "./components/ThreadDrawer";
 import { SettingsModal } from "./components/SettingsModal";
@@ -69,6 +70,12 @@ import { SavedItemsDrawer } from "./components/SavedItemsDrawer";
 import { encryptMessage, decryptMessage } from "./lib/crypto";
 import { DecryptedText } from "./components/DecryptedText";
 import { AuditLogDashboard } from "./components/AuditLogDashboard";
+import { ToastProvider, useToast } from "./components/Toast";
+import { EmptyState } from "./components/EmptyState";
+import { ScrollToBottomFab } from "./components/ScrollToBottomFab";
+import { TypingIndicator } from "./components/TypingIndicator";
+import { EnhancedEmojiPicker } from "./components/EnhancedEmojiPicker";
+import { MessageHoverActions } from "./components/MessageHoverActions";
 import { useSettings, THEMES, Theme } from "./contexts/SettingsContext";
 
 // Predefined channels for the user to select
@@ -105,6 +112,26 @@ function getAvatarColor(username: string): string {
     sum += username.charCodeAt(i);
   }
   return colors[sum % colors.length];
+}
+
+// Time grouping helper for messages
+function getTimeGroupLabel(timestamp: string, prevTimestamp?: string): string | null {
+  const msgDate = new Date(timestamp);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today.getTime() - 86400000);
+  const msgDay = new Date(msgDate.getFullYear(), msgDate.getMonth(), msgDate.getDate());
+
+  if (prevTimestamp) {
+    const prevDate = new Date(prevTimestamp);
+    if (msgDay.getTime() === new Date(prevDate.getFullYear(), prevDate.getMonth(), prevDate.getDate()).getTime()) {
+      return null;
+    }
+  }
+
+  if (msgDay.getTime() === today.getTime()) return "Today";
+  if (msgDay.getTime() === yesterday.getTime()) return "Yesterday";
+  return msgDate.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
 }
 
 // Quick canned responses to make the app interactive
@@ -1032,8 +1059,14 @@ export default function App() {
     };
   }, [socket]);
 
+  const { addToast } = useToast();
+
+  const handleScrollToBottom = () => {
+    messagesContainerRef.current?.scrollTo({ top: messagesContainerRef.current.scrollHeight, behavior: 'smooth' });
+  };
+
   return (
-    <div className={`min-h-screen ${t.bg} ${t.isLight ? "light-theme text-slate-800" : "text-slate-100"} font-sans flex flex-col selection:bg-indigo-500 selection:text-white transition-colors duration-300`}>
+    <div className={`min-h-screen ${t.bg} ${t.isLight ? "light-theme text-slate-800" : "text-slate-100"} font-sans flex flex-col selection:bg-indigo-500 selection:text-white`}>
       {/* Top ambient header bar */}
       <header className={`${t.headerBg} backdrop-blur-md border-b ${t.border} px-4 py-3 sm:px-6 sm:py-4 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 shrink-0 sticky top-0 z-40 transition-colors duration-300`}>
         <div className="flex items-center gap-3">
@@ -1067,31 +1100,40 @@ export default function App() {
           </button>
           {hasJoined && (
             <div className="flex items-center gap-4">
-              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border ${
-                connectionStatus === "connected" 
-                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" 
-                  : "bg-amber-500/10 text-amber-400 border-amber-500/20"
-              }`}>
+              <motion.div 
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border ${
+                  connectionStatus === "connected" 
+                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" 
+                    : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                }`}
+                animate={connectionStatus === "connected" ? { scale: [1, 1.02, 1] } : {}}
+                transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+              >
                 {connectionStatus === "connected" ? (
                   <>
-                    <Wifi className="w-3.5 h-3.5 animate-pulse" />
-                    <span>Connected</span>
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                    </span>
+                    <span>Live</span>
                   </>
                 ) : (
                   <>
                     <WifiOff className="w-3.5 h-3.5" />
-                    <span>Reconnecting</span>
+                    <span>Reconnecting...</span>
                   </>
                 )}
-              </div>
+              </motion.div>
               
-              <button
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={handleLeaveRoom}
-                className="flex items-center gap-2 text-xs font-medium text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg transition-all cursor-pointer"
+                className="flex items-center gap-2 text-xs font-medium text-slate-400 hover:text-white bg-slate-800 hover:bg-rose-600/20 hover:text-rose-400 px-3 py-1.5 rounded-lg transition-all cursor-pointer"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Leave Room</span>
-              </button>
+              </motion.button>
             </div>
           )}
         </div>
@@ -1107,25 +1149,52 @@ export default function App() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -12 }}
-              className="w-full max-w-4xl mx-auto px-4 py-8 md:py-16 flex flex-col justify-center items-center overflow-y-auto"
+              className="w-full max-w-5xl mx-auto px-4 py-8 md:py-16 flex flex-col justify-center items-center overflow-y-auto relative"
             >
-              <div className={`w-full grid grid-cols-1 md:grid-cols-12 gap-8 items-start ${t.cardBg} rounded-2xl p-6 md:p-8 backdrop-blur-sm shadow-xl transition-all duration-300`}>
+              {/* Animated gradient background orbs */}
+              <div className="absolute inset-0 overflow-hidden pointer-events-none -z-10">
+                <motion.div
+                  className="absolute w-72 h-72 rounded-full bg-indigo-600/20 blur-3xl"
+                  animate={{ x: [0, 60, 0], y: [0, -40, 0], scale: [1, 1.2, 1] }}
+                  transition={{ repeat: Infinity, duration: 8, ease: "easeInOut" }}
+                  style={{ top: '10%', left: '10%' }}
+                />
+                <motion.div
+                  className="absolute w-96 h-96 rounded-full bg-purple-600/15 blur-3xl"
+                  animate={{ x: [0, -50, 0], y: [0, 30, 0], scale: [1.2, 1, 1.2] }}
+                  transition={{ repeat: Infinity, duration: 10, ease: "easeInOut" }}
+                  style={{ bottom: '10%', right: '5%' }}
+                />
+                <motion.div
+                  className="absolute w-64 h-64 rounded-full bg-teal-600/10 blur-3xl"
+                  animate={{ x: [0, 30, 0], y: [0, 50, 0] }}
+                  transition={{ repeat: Infinity, duration: 12, ease: "easeInOut" }}
+                  style={{ top: '50%', left: '50%' }}
+                />
+              </div>
+
+              <div className={`w-full grid grid-cols-1 md:grid-cols-12 gap-8 items-start ${t.isLight ? "glass-panel-light" : "glass-panel"} rounded-3xl p-6 md:p-10 shadow-2xl`}>
                 
                 {/* Left block: Join inputs */}
                 <div className="md:col-span-5 flex flex-col gap-6">
                   <div>
-                    <h2 className="text-xl font-semibold text-white tracking-tight flex items-center gap-2">
+                    <h2 className={`text-xl font-bold ${t.isLight ? "text-slate-900" : "text-white"} tracking-tight flex items-center gap-2`}>
                       <Sparkles className={`w-5 h-5 ${t.accentText}`} /> Join Chat Space
                     </h2>
-                    <p className="text-sm text-slate-400 mt-1">
+                    <p className="text-sm text-slate-400 mt-1.5 leading-relaxed">
                       Choose your username and jump into a community or custom room.
                     </p>
                   </div>
 
                   {joinError && (
-                    <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-lg font-medium">
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-xl font-medium flex items-center gap-2"
+                    >
+                      <XCircle className="w-4 h-4 shrink-0" />
                       {joinError}
-                    </div>
+                    </motion.div>
                   )}
 
                   <div className="flex flex-col gap-4">
@@ -1136,6 +1205,15 @@ export default function App() {
                       </label>
                       <div className="relative">
                         <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-500" />
+                        {username && (
+                          <motion.div 
+                            initial={{ scale: 0, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            className={`absolute right-3 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg flex items-center justify-center font-bold text-[10px] uppercase border ${getAvatarColor(username)}`}
+                          >
+                            {username.slice(0, 2)}
+                          </motion.div>
+                        )}
                         <input
                           type="text"
                           maxLength={20}
@@ -1145,7 +1223,7 @@ export default function App() {
                             if (joinError) setJoinError("");
                           }}
                           placeholder="Enter your name..."
-                          className={`w-full pl-10 pr-4 py-2.5 ${t.inputBg} focus:outline-none focus:ring-2 ${t.accentFocusRing} rounded-xl text-slate-100 transition-all text-sm`}
+                          className={`w-full pl-10 pr-12 py-3 ${t.inputBg} focus:outline-none focus:ring-2 ${t.accentFocusRing} rounded-xl text-slate-100 transition-all text-sm input-glow`}
                           onKeyDown={(e) => e.key === "Enter" && handleJoin()}
                         />
                       </div>
@@ -1175,18 +1253,23 @@ export default function App() {
                     </div>
 
                     <motion.button
-                      whileHover={{ scale: 1.02 }}
+                      whileHover={{ scale: 1.02, boxShadow: "0 20px 40px -12px rgba(99, 102, 241, 0.4)" }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => handleJoin()}
                       disabled={isConnecting}
-                      className={`w-full py-3 mt-2 ${t.accentBg} ${t.accentHoverBg} disabled:bg-slate-800 disabled:text-slate-500 rounded-xl font-semibold text-sm text-white shadow-lg ${t.accentShadow} transition-all flex items-center justify-center gap-2 border ${t.accentBorder} cursor-pointer`}
+                      className={`w-full py-3.5 mt-2 ${t.accentBg} disabled:bg-slate-800 disabled:text-slate-500 rounded-2xl font-bold text-sm text-white shadow-lg transition-all flex items-center justify-center gap-2.5 border ${t.accentBorder} cursor-pointer relative overflow-hidden`}
                     >
+                      <motion.div
+                        className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0"
+                        animate={{ x: ["-200%", "200%"] }}
+                        transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+                      />
                       {isConnecting ? (
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                       ) : (
                         <>
-                          <span>Join Room</span>
-                          <ChevronRight className="w-4 h-4" />
+                          <span className="relative z-10">Join Room</span>
+                          <Send className="w-4 h-4 relative z-10" />
                         </>
                       )}
                     </motion.button>
@@ -1196,15 +1279,15 @@ export default function App() {
                 {/* Right block: Presets Selection */}
                 <div className={`md:col-span-7 flex flex-col gap-4 border-t md:border-t-0 md:border-l ${t.border} pt-6 md:pt-0 md:pl-8`}>
                   <div>
-                    <h3 className={`text-xs font-bold ${t.accentText} tracking-wider uppercase`}>
-                      Select A Popular Room
+                    <h3 className={`text-xs font-bold ${t.accentText} tracking-wider uppercase flex items-center gap-2`}>
+                      <Globe className="w-3.5 h-3.5" /> Popular Rooms
                     </h3>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      Or select one of our curated channels to start talking immediately.
+                    <p className="text-xs text-slate-400 mt-1">
+                      Select a curated channel to start talking immediately.
                     </p>
                   </div>
 
-                  <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-1">
+                  <div className="flex flex-col gap-2.5 max-h-[360px] overflow-y-auto pr-1 scrollbar-thin">
                     {PRESETS.map((preset) => {
                       const isSelected = room === preset.id && !customRoom;
                       return (
@@ -1217,10 +1300,10 @@ export default function App() {
                             setCustomRoom("");
                             if (joinError) setJoinError("");
                           }}
-                          className={`w-full text-left p-3.5 rounded-xl border transition-all flex items-start gap-4 cursor-pointer ${
+                          className={`w-full text-left p-4 rounded-2xl border-2 transition-all flex items-start gap-4 cursor-pointer ${
                             isSelected
-                              ? `${t.accentLightBg} ${t.accentLightBorder} text-slate-200 shadow-md`
-                              : `${t.inputBg} ${t.border} hover:bg-slate-850/40 text-slate-300`
+                              ? `${t.accentBg}/10 ${t.accentBorder} text-slate-200 shadow-lg ring-1 ${t.accentBorder}`
+                              : `${t.inputBg} ${t.border} hover:${t.accentBorder} hover:bg-white/5 text-slate-300`
                           }`}
                         >
                           <span className="text-2xl mt-0.5 filter drop-shadow">
@@ -1298,7 +1381,7 @@ export default function App() {
                         </button>
                       </div>
                       <div>
-                        <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-1.5 mt-0.5 truncate">
+                        <h2 className={`text-lg font-bold ${t.isLight ? "text-slate-900" : "text-white"} tracking-tight flex items-center gap-1.5 mt-0.5 truncate`}>
                           <Hash className={`w-4.5 h-4.5 ${t.accentText} shrink-0`} />
                           <span>{PRESETS.find((p) => p.id === room)?.name || room}</span>
                         </h2>
@@ -1365,11 +1448,11 @@ export default function App() {
                                               if (window.innerWidth < 768) setIsSidebarOpen(false);
                                             }
                                           }}
-                                          className={`flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all text-left ${
+                                          className={`sidebar-channel flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all text-left ${
                                             isActive 
-                                              ? `${t.accentBg} text-white shadow-lg ${t.accentShadow}` 
-                                              : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
-                                          }`}
+                                              ? `${t.accentBg} text-white shadow-lg`
+                                              : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                                          } ${isActive ? "active" : ""}`}
                                         >
                                           <span className="text-sm">{channel.emoji || "#"}</span>
                                           <span className="text-sm font-medium truncate flex-1">{channel.name}</span>
@@ -1462,6 +1545,36 @@ export default function App() {
                             </div>
                           );
                         })}
+                      </div>
+                    </div>
+                    {/* User Profile Footer */}
+                    <div className={`p-4 border-t ${t.border} mt-auto`}>
+                      <div 
+                        className={`flex items-center gap-3 p-2.5 rounded-2xl cursor-pointer transition-all ${t.cardBg} border ${t.border} hover:bg-white/5`}
+                        onClick={() => setSelectedProfileUser(username)}
+                      >
+                        <div className="relative">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs uppercase border ${getAvatarColor(username)}`}>
+                            {username.slice(0, 2)}
+                          </div>
+                          <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-slate-900 online-pulse" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-semibold ${t.isLight ? "text-slate-900" : "text-white"} truncate`}>{username}</p>
+                          <p className="text-[10px] text-slate-400 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                            Online
+                          </p>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsSettingsModalOpen(true);
+                          }}
+                          className={`p-1.5 rounded-lg ${t.isLight ? "hover:bg-slate-200 text-slate-500" : "hover:bg-slate-800 text-slate-500 hover:text-white"} transition-all cursor-pointer`}
+                        >
+                          <Settings className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
                   </motion.aside>
@@ -1811,29 +1924,13 @@ export default function App() {
                 })()}
 
                 {/* Messages Feed */}
-                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 relative z-10 bg-white/5 backdrop-blur-sm" ref={messagesContainerRef}>
-                  {scrolledUp && (
-                    <button
-                      onClick={() => messagesContainerRef.current?.scrollTo({ top: messagesContainerRef.current.scrollHeight, behavior: 'smooth' })}
-                      className="fixed bottom-24 right-6 bg-indigo-600 text-white px-4 py-2 rounded-full shadow-lg z-50 animate-pulse text-xs font-bold"
-                    >
-                      Jump to Present ↓
-                    </button>
-                  )}
+                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-1 relative z-10 scrollbar-thin" ref={messagesContainerRef}>
                   {messages.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-center p-6 max-w-sm mx-auto">
-                      <div className={`relative w-20 h-20 mb-6 flex items-center justify-center`}>
-                        <div className={`absolute inset-0 rounded-3xl ${t.accentBg} opacity-10 rotate-6`} />
-                        <div className={`absolute inset-0 rounded-3xl ${t.accentBg} opacity-10 -rotate-6`} />
-                        <div className={`w-16 h-16 rounded-2xl ${t.cardBg} border ${t.border} flex items-center justify-center ${t.accentText} shadow-xl relative z-10`}>
-                          <MessageSquare className="w-8 h-8" />
-                        </div>
-                      </div>
-                      <h4 className="font-semibold text-white text-lg">Welcome to <span className={t.accentText}>#{room}</span>!</h4>
-                      <p className="text-sm text-slate-400 mt-2 max-w-[240px]">
-                        The room is quiet... send the first message to break the ice!
-                      </p>
-                    </div>
+                    <EmptyState 
+                      channelName={PRESETS.find((p) => p.id === room)?.name || room}
+                      channelEmoji={PRESETS.find((p) => p.id === room)?.emoji}
+                      theme={t}
+                    />
                   ) : filteredMessages.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-center p-6 max-w-sm mx-auto">
                       <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mb-4 animate-pulse">
@@ -1852,36 +1949,59 @@ export default function App() {
                     </div>
                   ) : (
                     filteredMessages.map((msg, index) => {
+                      // Time group divider
+                      const prevMsg = index > 0 ? filteredMessages[index - 1] : undefined;
+                      const timeGroupLabel = getTimeGroupLabel(msg.timestamp, prevMsg?.timestamp);
+                      
                       if (msg.isSystem) {
                         return (
-                          <motion.div 
-                            key={msg.id} 
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ duration: 0.2 }}
-                            className="flex justify-center my-2"
-                          >
-                            <span className={`text-[11px] px-3 py-1 ${t.cardBg} rounded-full text-slate-400 border ${t.border}/50 italic flex items-center gap-1.5`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${t.accentBg}/60 inline-block`} />
-                              {msg.text} ({msg.timestamp})
-                            </span>
-                          </motion.div>
+                          <React.Fragment key={`timegroup-${msg.id}`}>
+                            {timeGroupLabel && (
+                              <div className="flex items-center gap-3 my-6">
+                                <div className={`flex-1 h-px ${t.border}`} />
+                                <span className={`text-[10px] font-bold uppercase tracking-widest ${t.textMuted} px-3 py-1 rounded-full ${t.cardBg} border ${t.border}`}>
+                                  {timeGroupLabel}
+                                </span>
+                                <div className={`flex-1 h-px ${t.border}`} />
+                              </div>
+                            )}
+                            <motion.div 
+                              key={msg.id} 
+                              initial={{ opacity: 0, scale: 0.95 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              transition={{ duration: 0.2 }}
+                              className="flex justify-center my-2"
+                            >
+                              <span className={`text-[11px] px-3 py-1 ${t.cardBg} rounded-full text-slate-400 border ${t.border}/50 italic flex items-center gap-1.5`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${t.accentBg}/60 inline-block`} />
+                                {msg.text}
+                              </span>
+                            </motion.div>
+                          </React.Fragment>
                         );
                       }
 
-                      const prevMsg = filteredMessages[index - 1];
                       const isGrouped = prevMsg && !prevMsg.isSystem && prevMsg.sender === msg.sender;
                       const isMe = msg.sender === username;
                       const isMentioned = !isMe && msg.text && username && 
                         new RegExp(`@${username.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}\\b`, 'i').test(msg.text);
                       return (
+                        <React.Fragment key={msg.id}>
+                          {timeGroupLabel && (
+                            <div className="flex items-center gap-3 my-6">
+                              <div className={`flex-1 h-px ${t.border}`} />
+                              <span className={`text-[10px] font-bold uppercase tracking-widest ${t.textMuted} px-3 py-1 rounded-full ${t.cardBg} border ${t.border}`}>
+                                {timeGroupLabel}
+                              </span>
+                              <div className={`flex-1 h-px ${t.border}`} />
+                            </div>
+                          )}
                         <motion.div
-                          key={msg.id}
                           id={msg.id}
                           initial={{ opacity: 0, y: 12, scale: 0.98 }}
                           animate={{ opacity: 1, y: 0, scale: 1 }}
                           transition={{ type: "spring", stiffness: 350, damping: 28 }}
-                          className={`flex items-start gap-3 max-w-[85%] md:max-w-[70%] rounded-xl transition-all duration-300 ${
+                          className={`message-bubble flex items-start gap-3 max-w-[85%] md:max-w-[70%] rounded-xl ${
                             isMe ? "ml-auto flex-row-reverse" : "mr-auto"
                           } ${isGrouped ? (densityMode === 'compact' ? "mt-[-12px]" : "mt-[-4px]") : "mt-4"} ${msg.isResolved ? "filter grayscale opacity-40 blur-[0.2px] hover:grayscale-0 hover:opacity-100" : ""}`}
                         >
@@ -2164,52 +2284,41 @@ export default function App() {
                             )}
                           </div>
                         </motion.div>
+                        </React.Fragment>
                       );
                     })
                   )}
 
-                  {/* Typing Indicator Bubble */}
-                  <AnimatePresence>
-                    {typingUsernames.length > 0 && (
-                      <motion.div 
-                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        transition={{ duration: 0.15 }}
-                        className="flex items-center gap-2.5 pl-1.5 text-slate-400"
-                      >
-                        <div className={`flex items-center gap-2 bg-slate-850 px-3 py-1.5 rounded-full border ${t.border} text-xs ${t.accentText}`}>
-                          <div className="flex -space-x-1">
-                            {typingUsernames.slice(0, 3).map((name) => (
-                              <div key={name} className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold border ${t.border} ${getAvatarColor(name)}`}>
-                                {name.slice(0, 2).toUpperCase()}
-                              </div>
-                            ))}
-                          </div>
-                          <span className="animate-pulse">typing...</span>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                  {/* Typing Indicator */}
+                  <TypingIndicator usernames={typingUsernames} theme={t} />
 
-                  {/* Dummy div to scroll to */}
+                  {/* Scroll to bottom anchor */}
                   <div ref={messagesEndRef} />
+
+                  {/* Scroll to bottom FAB */}
+                  <ScrollToBottomFab
+                    visible={scrolledUp}
+                    onClick={handleScrollToBottom}
+                    theme={t}
+                  />
                 </div>
 
                 {/* Quick responses deck */}
                 {!isReadingMode && (
-                  <div className={`px-4 py-2 ${t.cardBg} backdrop-blur-md border-t ${t.border}/60 flex items-center gap-2 overflow-x-auto shrink-0 scrollbar-none relative z-10`}>
-                    <span className={`text-[10px] font-bold ${t.accentText}/80 uppercase tracking-widest shrink-0 mr-1`}>
-                      Quick Reply:
+                  <div className={`px-4 py-2.5 ${t.cardBg} backdrop-blur-md border-t ${t.border}/60 flex items-center gap-2 overflow-x-auto shrink-0 scrollbar-none relative z-10`}>
+                    <span className={`text-[10px] font-bold ${t.accentText}/80 uppercase tracking-widest shrink-0 mr-1 flex items-center gap-1`}>
+                      <Zap className="w-3 h-3" /> Quick Reply
                     </span>
                     {QUICK_RESPONSES.map((resp, i) => (
-                      <button
+                      <motion.button
                         key={i}
+                        whileHover={{ scale: 1.05, y: -1 }}
+                        whileTap={{ scale: 0.95 }}
                         onClick={() => handleSendMessage(resp)}
-                        className={`text-xs px-2.5 py-1.5 ${t.inputBg} hover:opacity-80 border ${t.border} ${t.isLight ? "text-slate-700 hover:border-slate-400" : "text-slate-300 hover:border-slate-500"} rounded-lg transition-all shrink-0 cursor-pointer`}
+                        className={`text-xs px-3 py-1.5 ${t.inputBg} hover:opacity-80 border ${t.border} ${t.isLight ? "text-slate-700 hover:border-slate-400" : "text-slate-300 hover:border-slate-500"} rounded-xl transition-all shrink-0 cursor-pointer shadow-sm`}
                       >
                         {resp}
-                      </button>
+                      </motion.button>
                     ))}
                   </div>
                 )}
@@ -2329,7 +2438,7 @@ export default function App() {
                             onChange={handleInputChange}
                             placeholder={`Send a message to #${room}...`}
                             disabled={currentUser?.isMuted || (currentUser?.role === "guest" && !room.toLowerCase().includes("lobby"))}
-                            className={`w-full pl-4 pr-[88px] py-3 ${t.inputBg} border ${t.border} focus:outline-none focus:ring-2 ${t.accentFocusRing} rounded-xl text-slate-100 transition-all text-sm ${(currentUser?.isMuted || (currentUser?.role === "guest" && !room.toLowerCase().includes("lobby"))) ? "opacity-50 grayscale cursor-not-allowed" : ""}`}
+                            className={`w-full pl-4 pr-[88px] py-3.5 ${t.inputBg} border ${t.border} focus:outline-none focus:ring-2 ${t.accentFocusRing} rounded-2xl text-slate-100 text-sm input-glow ${(currentUser?.isMuted || (currentUser?.role === "guest" && !room.toLowerCase().includes("lobby"))) ? "opacity-50 grayscale cursor-not-allowed" : ""}`}
                             onKeyDown={handleInputKeyDown}
                           />
 

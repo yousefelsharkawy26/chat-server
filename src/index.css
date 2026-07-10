@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -101,9 +101,261 @@
   color: #0f172a !important;
 }
 
-/* Smooth theme transitions */
-*, *::before, *::after {
-  transition-property: background-color, border-color, color, fill, stroke, box-shadow;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  transition-duration: 300ms;
+/* ---------------------------------------------------------
+   CUSTOM SCROLLBAR
+   --------------------------------------------------------- */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 100px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ---------------------------------------------------------
+   JOIN SCREEN ANIMATED BACKGROUND
+   --------------------------------------------------------- */
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.join-gradient-bg {
+  background: linear-gradient(-45deg, #1e1b4b, #172554, #134e4a, #1c1917, #1e1b4b);
+  background-size: 400% 400%;
+  animation: gradient-shift 15s ease infinite;
+}
+
+.join-gradient-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 50%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(168, 85, 247, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 50% 80%, rgba(16, 185, 129, 0.08) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------
+   GLASS MORPHISM ENHANCED
+   --------------------------------------------------------- */
+.glass-panel {
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  border: 1px solid rgba(148, 163, 184, 0.08);
+}
+
+.glass-panel-light {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+/* ---------------------------------------------------------
+   MESSAGE BUBBLE ENHANCEMENTS
+   --------------------------------------------------------- */
+.message-bubble {
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.message-bubble:hover {
+  transform: translateY(-1px);
+}
+
+.message-bubble .hover-actions {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.message-bubble:hover .hover-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ---------------------------------------------------------
+   SIDEBER ENHANCEMENTS
+   --------------------------------------------------------- */
+.sidebar-channel {
+  position: relative;
+  transition: all 0.15s ease;
+}
+
+.sidebar-channel::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%) scaleY(0);
+  width: 3px;
+  height: 60%;
+  border-radius: 0 4px 4px 0;
+  background: var(--channel-active-accent, #6366f1);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-channel:hover::before,
+.sidebar-channel.active::before {
+  transform: translateY(-50%) scaleY(1);
+}
+
+/* ---------------------------------------------------------
+   SHIMMER LOADING EFFECT
+   --------------------------------------------------------- */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+  animation: shimmer 2s infinite;
+}
+
+/* ---------------------------------------------------------
+   PULSE DOT FOR ONLINE STATUS
+   --------------------------------------------------------- */
+@keyframes pulse-ring {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+.online-pulse::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  background: inherit;
+  animation: pulse-ring 2s ease-out infinite;
+}
+
+/* ---------------------------------------------------------
+   FLOATING PARTICLES BACKGROUND
+   --------------------------------------------------------- */
+@keyframes float-up {
+  0% { transform: translateY(100vh) scale(0); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+}
+
+.floating-particle {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: float-up linear infinite;
+}
+
+/* ---------------------------------------------------------
+   SMOOTH TRANSITIONS (refined)
+   --------------------------------------------------------- */
+* {
+  transition-property: background-color, border-color, color, fill, stroke, box-shadow, opacity;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 200ms;
+}
+
+/* Override for motion/animation elements to not conflict */
+[data-framer-motion] {
+  transition: none !important;
+}
+
+/* ---------------------------------------------------------
+   CODE BLOCK ENHANCEMENTS
+   --------------------------------------------------------- */
+.prose pre {
+  border-radius: 12px !important;
+  border: 1px solid rgba(148, 163, 184, 0.1) !important;
+  margin: 8px 0 !important;
+}
+
+.prose code:not(pre code) {
+  padding: 2px 6px !important;
+  border-radius: 6px !important;
+  font-size: 0.85em !important;
+  background: rgba(148, 163, 184, 0.1) !important;
+  border: 1px solid rgba(148, 163, 184, 0.08) !important;
+}
+
+/* ---------------------------------------------------------
+   REACTION CHIP STYLE
+   --------------------------------------------------------- */
+.reaction-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 13px;
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  background: rgba(15, 23, 42, 0.4);
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.reaction-chip:hover {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.3);
+  transform: scale(1.05);
+}
+
+.reaction-chip.active {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.4);
+}
+
+/* ---------------------------------------------------------
+   INPUT AREA GLOW EFFECT
+   --------------------------------------------------------- */
+.input-glow:focus-within {
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15), 0 0 20px rgba(99, 102, 241, 0.05);
+}
+
+/* ---------------------------------------------------------
+   MOBILE RESPONSIVE HELPERS
+   --------------------------------------------------------- */
+@media (max-width: 768px) {
+  .mobile-slide-in {
+    animation: slide-in-mobile 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  @keyframes slide-in-mobile {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
+  }
+}
+
+/* ---------------------------------------------------------
+   STATUS BADGE STYLES
+   --------------------------------------------------------- */
+.status-online { background: #10b981; }
+.status-away { background: #f59e0b; }
+.status-busy { background: #ef4444; }
+.status-focus { background: #6366f1; }
