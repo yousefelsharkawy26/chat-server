@@ -1,0 +1,6 @@
+{
+  "name": "Real-Time Chat",
+  "description": "A feature-rich real-time chat application with collaborative whiteboard, native task management, voice messages, and @mentions.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
